@@ -511,5 +511,5 @@ This project is open source and available under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <strong>Built with ❤️ for space exploration</strong>
+  <strong>Built by Harinayan ❤️ for space exploration</strong>
 </p>
