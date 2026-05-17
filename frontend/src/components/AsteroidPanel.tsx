@@ -25,9 +25,8 @@ export default memo(function AsteroidPanel() {
     const fetchAsteroids = async () => {
       try {
         const today = new Date().toISOString().split('T')[0];
-        const key = process.env.NEXT_PUBLIC_NASA_API_KEY ?? 'DEMO_KEY';
         const r = await fetch(
-          `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${key}`
+          `/api/nasa?path=neo/rest/v1/feed&start_date=${today}&end_date=${today}`
         );
         if (!r.ok) throw new Error('API limit');
         const data = await r.json();

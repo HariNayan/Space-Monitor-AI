@@ -9,8 +9,7 @@ export default function MarsRoverPanel() {
     let isMounted = true;
     const fetchMars = async () => {
       try {
-        const apiKey = process.env.NEXT_PUBLIC_NASA_API_KEY || 'DEMO_KEY';
-        const r = await fetch(`https://api.nasa.gov/mars-photos/api/v1/rovers/perseverance/latest_photos?api_key=${apiKey}`);
+        const r = await fetch('/api/nasa?path=mars-photos/api/v1/rovers/perseverance/latest_photos');
         if (!r.ok) throw new Error('API limit');
         const data = await r.json();
         if (isMounted && data?.latest_photos && data.latest_photos.length > 0) {

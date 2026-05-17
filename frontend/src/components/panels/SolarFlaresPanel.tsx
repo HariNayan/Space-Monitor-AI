@@ -13,9 +13,7 @@ export default function SolarFlaresPanel() {
         start.setDate(end.getDate() - 30);
         const startStr = start.toISOString().split('T')[0];
         const endStr = end.toISOString().split('T')[0];
-        const apiKey = process.env.NEXT_PUBLIC_NASA_API_KEY || 'DEMO_KEY';
-        
-        const r = await fetch(`https://api.nasa.gov/DONKI/FLR?startDate=${startStr}&endDate=${endStr}&api_key=${apiKey}`);
+        const r = await fetch(`/api/nasa?path=DONKI/FLR&startDate=${startStr}&endDate=${endStr}`);
         if (!r.ok) throw new Error('API limit');
         const data = await r.json();
         if (isMounted && Array.isArray(data)) {
