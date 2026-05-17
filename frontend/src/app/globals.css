@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #060810;
+  --panel: #0a0c14;
+  --border: #161a26;
+  --border2: #1e2335;
+  --text: #c8ccd8;
+  --muted: #4a5070;
+  --dim: #2a2f42;
+  --accent: #e8d5a3;
+  --blue: #6a9fd8;
+  --green: #4a8c6f;
+  --red: #c0473a;
+  --orange: #c87840;
+  --yellow: #c8a840;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+}
+
+#__next {
+  min-height: 100%;
+}
+
+* {
+  overflow: visible;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Courier New', monospace;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0a0c14;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #1e2335;
+  border-radius: 0;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #2a3040;
+}
+
+@keyframes scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.quiz-card {
+  background: #0a0d14;
+  border: 1px solid #1e2335;
+  padding: 6px 8px;
+  margin: 0;
+}
+
+.quiz-question {
+  font-size: 10px;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.quiz-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quiz-options button {
+  text-align: left;
+  padding: 4px 8px;
+  font-size: 9px;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid #1e2335;
+  color: var(--muted);
+  border-radius: 0;
+}
+
+.quiz-options button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.quiz-options button.correct {
+  color: var(--green);
+  border-color: var(--green);
+  background: rgba(74, 140, 111, 0.08);
+}
+
+.quiz-options button.wrong {
+  color: var(--red);
+  border-color: var(--red);
+  background: rgba(192, 71, 58, 0.08);
+}
+
+.quiz-options button.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.quiz-explanation {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #161a26;
+  line-height: 1.4;
+}
