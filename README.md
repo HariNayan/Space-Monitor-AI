@@ -16,6 +16,10 @@
   </p>
 </p>
 
+## Deployment Link
+
+Live app: https://agentic-ai-and-nlp-driven-space-sim.vercel.app/
+
 ---
 
 ## 🌌 Overview
