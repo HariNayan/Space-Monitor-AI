@@ -54,7 +54,7 @@
 
 ## 🤔 Why Space Monitor?
 
-CLI-Anything turns *any software into agent-native tools*. Space Monitor goes the other direction — it turns *raw space data into an immersive human + AI command center*.
+Space Monitor turns *raw space data into an immersive human + AI command center*.
 
 | **Problem** | **Space Monitor's Fix** |
 |-------------|------------------------|
