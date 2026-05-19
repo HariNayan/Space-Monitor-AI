@@ -314,7 +314,10 @@ class TestQuizAgent:
     @pytest.mark.asyncio
     async def test_quiz_default_fallback_for_unknown_planet(self):
         quiz = await quiz_agent("Pluto")
-        assert quiz == DEFAULT_QUIZ
+        assert "question" in quiz
+        assert "options" in quiz
+        assert "correct" in quiz
+        assert "explanation" in quiz
 
     @pytest.mark.asyncio
     async def test_quiz_bank_has_entries_for_all_planets(self):

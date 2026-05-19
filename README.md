@@ -37,7 +37,7 @@
 - **2026-05** 🪐 **Elliptic orbits & 16 moons** — Kepler equation solver for all 8 planets, plus Earth's Moon, 4 Galilean moons, Titan, Mimas, Enceladus, 5 Uranian moons, and Triton. Axial tilt rendering for every body.
 - **2026-05** 🤖 **Agentic AI tool-use** — `get_planet_data`, `get_space_news`, `get_orbital_position`, `get_upcoming_launches` — the AI can fetch live data and respond with real context.
 - **2026-05** 🧠 **Curriculum system** — 3 levels × 3 lessons each (9 total), progressive unlocking, per-session tracking with quiz completion.
-- **2026-05** 📡 **7 real NASA API panels** — DSN Now, Exoplanet Archive, JPL Horizons (Voyager), APOD, Mars Weather (InSight), Solar Flares (NOAA SWPC), Mars Rover (Mars 2020 raw images). All simulated panels removed.
+- **2026-05** 📡 **7 real NASA API panels** — DSN Now, Exoplanet Archive, JPL Horizons (Voyager), APOD, Mars Weather (Curiosity REMS, fallback InSight archived), Solar Flares (NOAA SWPC), Mars Rover (Mars 2020 raw images). All simulated panels removed.
 - **2026-04** 🌐 **Ephemeris via local math** — Replaced 8 slow JPL Horizons calls with instant client-side orbital element computation.
 - **2026-04** 🧪 **Test suite** — 17 vitest (orbital math) + 52 pytest (agent routing, memory, curriculum).
 
@@ -214,7 +214,7 @@ Real-time telemetry from 8 NASA/NOAA/JPL APIs + 6 computed panels — ISS positi
 | **Deep Space Network** | NASA DSN Now API | On load |
 | **Exoplanets** | NASA Exoplanet Archive TAP | On load |
 | **Voyager 1 & 2** | JPL Horizons distance proxy | On load |
-| **Mars Weather** | NASA InSight weather API | On load |
+| **Mars Weather** | Curiosity REMS (fallback: InSight archived) | On load |
 | **APOD** | NASA Astronomy Picture of the Day | On load |
 | **Ephemeris** | Client-side orbital math | Real-time |
 | **Planet Info** | Curated encyclopedia (9 bodies) | On selection |
@@ -335,6 +335,7 @@ Turn astronomy into an interactive experience:
 │  │  /api/mars-rover    → Mars 2020 Raw Image API         │  │
 │  │  /api/solar-flares  → NOAA SWPC                       │  │
 │  │  /api/voyager       → JPL Horizons Voyager            │  │
+│  │  /api/rems          → Curiosity REMS                  │  │
 │  └───────────────────────────────────────────────────────┘  │
 └──────────────────────────────┬──────────────────────────────┘
                                │
@@ -422,8 +423,9 @@ The `SceneContent` component runs **vanilla Three.js** (not React Three Fiber) �
 | **NASA Exoplanet Archive** | Exoplanet data via TAP query |
 | **NASA DSN Now** | Deep Space Network dish telemetry |
 | **NASA APOD** | Astronomy Picture of the Day |
-| **NASA InSight Weather** | Mars weather data |
+| **Curiosity REMS** | Mars environmental data (fallback: InSight archived) |
 | **Open Notify** | ISS real-time position |
+| **Curiosity REMS** | Mars environmental data |
 | **Spaceflight News API** | Space news articles |
 | **The Space Devs** | Upcoming rocket launches |
 
@@ -504,7 +506,8 @@ Space/
 │       │       ├── exoplanets/       → NASA Exoplanet Archive
 │       │       ├── mars-rover/       → Mars 2020 Raw Images
 │       │       ├── solar-flares/     → NOAA SWPC
-│       │       └── voyager/          → JPL Horizons Voyager
+│       │       ├── voyager/          → JPL Horizons Voyager
+│       │       └── rems/             → Curiosity REMS
 │       │
 │       ├── components/
 │       │   ├── SceneContent.tsx      # 3D solar system (vanilla Three.js)
@@ -630,14 +633,15 @@ minimax-m2.7
 
 ## 📄 License
 
-This project is for educational and personal use only. No license is granted for commercial use.
+MIT License — see [LICENSE](./LICENSE) for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
 - **[NASA JPL Horizons](https://ssd.jpl.nasa.gov/horizons/)** — Real planetary ephemeris data
-- **[NASA Open APIs](https://api.nasa.gov/)** — NeoWs, Mars Photos, APOD, InSight
+- **[NASA Open APIs](https://api.nasa.gov/)** — NeoWs, Mars Photos, APOD
+- **[Curiosity REMS](https://mars.nasa.gov/rems/)** — Mars environmental data
 - **[NOAA SWPC](https://www.swpc.noaa.gov/)** — Real-time solar flare data
 - **[Open Notify](http://open-notify.org/)** — ISS position tracking
 - **[Spaceflight News API](https://api.spaceflightnewsapi.net/)** — Space news aggregation

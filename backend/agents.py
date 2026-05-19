@@ -45,27 +45,45 @@ PLANET_DB: dict[str, dict] = {
     "Moon":    { "radius": 1737, "mass": "7.35e22 kg", "gravity": "1.6 m/s²", "day": "27.3 days", "year": "27.3 days", "moons": 0, "temp": "-233 to 123°C", "fun_fact": "The Moon is slowly drifting away from Earth — about 3.8 cm per year!" },
 }
 
-# ── Tool Definitions ─────────────────────────────────────────────────────────
-TOOL_DEFINITIONS = [
+# ── Tool Definitions (OpenAI function-calling schema) ──────────────────────────
+FUNCTIONS = [
     {
         "name": "get_planet_data",
         "description": "Get physical data about a planet or celestial body (radius, mass, gravity, temperature, fun facts)",
-        "parameters": {"planet": "Name of the planet (e.g. Mars, Jupiter, Saturn)"}
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "planet": {"type": "string", "description": "Name of the planet (e.g. Mars, Jupiter, Saturn)"}
+            },
+            "required": ["planet"]
+        }
     },
     {
         "name": "get_space_news",
         "description": "Get the latest space news headlines",
-        "parameters": {}
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
     },
     {
         "name": "get_orbital_position",
         "description": "Get current orbital position of a planet based on real Keplerian elements",
-        "parameters": {"planet": "Name of the planet"}
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "planet": {"type": "string", "description": "Name of the planet"}
+            },
+            "required": ["planet"]
+        }
     },
     {
         "name": "get_upcoming_launches",
         "description": "Get upcoming space launches",
-        "parameters": {}
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
     },
 ]
 
@@ -205,12 +223,13 @@ User message: {message}
 Classify intent and extract target. Return ONLY JSON. No markdown.
 {{"intent": "explain"|"navigate"|"quiz", "target": "planet_name"}}"""
     try:
-        content = await call_llm(prompt, SYSTEM_PROMPT_ORCHESTRATOR, max_tokens=100, temperature=0.1)
+        llm_result = await call_llm(prompt, SYSTEM_PROMPT_ORCHESTRATOR, max_tokens=100, temperature=0.1)
+        content = llm_result["content"]
         if content == "RATE_LIMITED" or content.startswith("API key"):
             return classify_intent(message, current_planet)
-        result = safe_json_parse(content, {})
-        intent = result.get("intent", "explain")
-        target = result.get("target", current_planet).capitalize()
+        parsed = safe_json_parse(content, {})
+        intent = parsed.get("intent", "explain")
+        target = parsed.get("target", current_planet).capitalize()
         if intent not in ("explain", "navigate", "quiz"):
             intent = "explain"
         return intent, target
@@ -220,17 +239,15 @@ Classify intent and extract target. Return ONLY JSON. No markdown.
 
 # ── Agent Loop (Tool-Using) ──────────────────────────────────────────────────
 TOOL_SYSTEM_PROMPT = """You are an AI space educator with access to real-time space data tools.
-When the user asks something that could benefit from live data, call a tool.
+When the user asks something that could benefit from live data, call a function.
 
-Available tools:
+Available functions:
 - get_planet_data(planet): physical data about any planet
 - get_space_news(): latest space news headlines
 - get_orbital_position(planet): current orbital position
 - get_upcoming_launches(): upcoming space launches
 
-To call a tool, output: TOOL_CALL: {{"name": "tool_name", "args": {{...}}}}
-Then wait for the tool result before responding.
-
+Use the function you need by name with the required parameters.
 If no tool is needed, respond normally.
 Current planet context: {{planet}}
 User level: {{level}}
@@ -239,15 +256,17 @@ Keep responses engaging and educational."""
 async def agent_with_tools(prompt: str, planet: str, level: str, history: str) -> tuple[list[dict], str]:
     system = TOOL_SYSTEM_PROMPT.replace("{{planet}}", planet).replace("{{level}}", level)
     full_prompt = f"Conversation history:\n{history}\n\nUser: {prompt}"
-    content = await call_llm(full_prompt, system, max_tokens=300, temperature=0.7)
-    if content.startswith("TOOL_CALL:"):
+    llm_result = await call_llm(full_prompt, system, max_tokens=300, temperature=0.7, functions=FUNCTIONS)
+    func_call = llm_result.get("function_call")
+    if func_call:
         try:
-            tool_json = json.loads(content[len("TOOL_CALL:"):].strip())
-            result = await execute_tool(tool_json["name"], tool_json.get("args", {}))
-            return [{"role": "assistant", "content": f"I'll look that up for you."}, {"role": "tool", "content": result}], tool_json["name"]
+            name = func_call["name"]
+            args = json.loads(func_call["arguments"]) if func_call.get("arguments") else {}
+            result = await execute_tool(name, args)
+            return [{"role": "assistant", "content": f"I'll look that up for you."}, {"role": "function", "name": name, "content": result}], name
         except Exception:
             pass
-    return [{"role": "assistant", "content": content}], ""
+    return [{"role": "assistant", "content": llm_result["content"]}], ""
 
 
 def build_tool_context_prompt(history: str, prompt: str, tool_calls: list, tool_results: list) -> str:
@@ -350,31 +369,32 @@ def safe_json_parse(raw: str, fallback: dict) -> dict:
         return fallback
 
 
-async def call_llm(prompt: str, system_prompt: str, max_tokens: int = 500, temperature: float = 0.7) -> str:
+async def call_llm(prompt: str, system_prompt: str, max_tokens: int = 500, temperature: float = 0.7, functions: Optional[list] = None) -> dict:
     if not NVIDIA_API_KEY:
-        return "API key not configured. Please add NVIDIA_API_KEY to .env file."
+        return {"content": "API key not configured. Please add NVIDIA_API_KEY to .env file.", "function_call": None}
     async with httpx.AsyncClient(timeout=15.0) as client:
         for model in FALLBACK_MODELS:
             try:
-                response = await client.post(
-                    BASE_URL,
-                    headers=HEADERS,
-                    json={
-                        "model": model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": prompt}
-                        ],
-                        "max_tokens": max_tokens,
-                        "temperature": temperature
-                    }
-                )
+                body = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
+                }
+                if functions:
+                    body["functions"] = functions
+                    body["function_call"] = "auto"
+                response = await client.post(BASE_URL, headers=HEADERS, json=body)
                 if response.status_code == 200:
                     data = response.json()
-                    return data["choices"][0]["message"]["content"]
+                    msg = data["choices"][0]["message"]
+                    return {"content": msg.get("content", ""), "function_call": msg.get("function_call")}
             except Exception:
                 continue
-    return "RATE_LIMITED"
+    return {"content": "RATE_LIMITED", "function_call": None}
 
 
 async def call_llm_stream(prompt: str, system_prompt: str, max_tokens: int = 512, temperature: float = 0.8):
@@ -424,8 +444,8 @@ async def call_llm_stream(prompt: str, system_prompt: str, max_tokens: int = 512
 
 async def quiz_agent(planet: str) -> dict:
     try:
-        content = await call_llm(planet, SYSTEM_PROMPT_QUIZ.format(planet=planet), max_tokens=200)
-        return safe_json_parse(content, QUIZ_BANK.get(planet, DEFAULT_QUIZ))
+        llm_result = await call_llm(planet, SYSTEM_PROMPT_QUIZ.format(planet=planet), max_tokens=200)
+        return safe_json_parse(llm_result["content"], QUIZ_BANK.get(planet, DEFAULT_QUIZ))
     except Exception:
         return QUIZ_BANK.get(planet, DEFAULT_QUIZ)
 

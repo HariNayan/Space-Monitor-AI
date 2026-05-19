@@ -4,39 +4,106 @@ import { useEffect, useState } from 'react';
 interface SolData {
   sol: string;
   season: string;
-  tempHigh: number;
-  tempLow: number;
-  pressure: number;
-  windSpeed: number;
+  tempHigh: number | null;
+  tempLow: number | null;
+  pressure: number | null;
+  windSpeed: number | null;
+  archived: boolean;
+  source: string;
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #161a26', padding: '3px 0' }}>
+      <span style={{ fontSize: '8px', color: '#4a5070', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontSize: '9px', color: '#c8ccd8' }}>{value}</span>
+    </div>
+  );
+}
+
+function parseInSight(d: Record<string, unknown>): SolData | null {
+  const solKeys = Object.keys(d).filter(k => /^\d+$/.test(k)).sort();
+  if (solKeys.length === 0) return null;
+  const latest = d[solKeys[solKeys.length - 1]] as Record<string, unknown>;
+  return {
+    sol: solKeys[solKeys.length - 1],
+    season: (latest.AT as any)?.ob?.season || '--',
+    tempHigh: (latest.AT as any)?.mx ?? null,
+    tempLow: (latest.AT as any)?.mn ?? null,
+    pressure: (latest.PRE as any)?.av ?? null,
+    windSpeed: (latest.HWS as any)?.av ?? null,
+    archived: true,
+    source: 'InSight (archived Dec 2022)',
+  };
+}
+
+function parseREMS(d: Record<string, unknown>): SolData | null {
+  try {
+    const soles = d['soles'] as Record<string, unknown>[] | undefined;
+    if (!soles || soles.length === 0) return null;
+    const latest = soles[soles.length - 1];
+    return {
+      sol: String(latest['sol'] ?? '--'),
+      season: String(latest['season'] ?? '--'),
+      tempHigh: latest['max_temp'] != null && latest['max_temp'] !== '--' ? Number(latest['max_temp']) : null,
+      tempLow: latest['min_temp'] != null && latest['min_temp'] !== '--' ? Number(latest['min_temp']) : null,
+      pressure: latest['pressure'] != null && latest['pressure'] !== '--' ? Number(latest['pressure']) : null,
+      windSpeed: latest['wind_speed'] != null && latest['wind_speed'] !== '--' ? Number(latest['wind_speed']) : null,
+      archived: false,
+      source: 'Curiosity // REMS',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export default function MarsWeatherPanel() {
   const [sol, setSol] = useState<SolData | null>(null);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const fetchWeather = async () => {
+      setLoading(true);
+
+      // Try REMS (Curiosity) first
+      try {
+        const r = await fetch('/api/rems');
+        if (r.ok) {
+          const d = await r.json();
+          const parsed = parseREMS(d);
+          if (parsed && mounted) {
+            setSol(parsed);
+            setError(false);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // fall through
+      }
+
+      // Fallback: InSight (archived)
       try {
         const r = await fetch('/api/nasa?path=insight_weather/&feedtype=json&ver=1.0');
-        if (!r.ok) throw new Error('API error');
-        const d = await r.json();
-        if (!mounted) return;
-
-        const solKeys = Object.keys(d).filter(k => /^\d+$/.test(k)).sort();
-        if (solKeys.length === 0) throw new Error('No sol data');
-
-        const latest = d[solKeys[solKeys.length - 1]];
-        setSol({
-          sol: solKeys[solKeys.length - 1],
-          season: latest.AT?.ob?.season || '--',
-          tempHigh: latest.AT?.mx ?? null,
-          tempLow: latest.AT?.mn ?? null,
-          pressure: latest.PRE?.av ?? null,
-          windSpeed: latest.HWS?.av ?? null,
-        });
+        if (r.ok) {
+          const d = await r.json();
+          const parsed = parseInSight(d);
+          if (parsed && mounted) {
+            setSol(parsed);
+            setError(false);
+            setLoading(false);
+            return;
+          }
+        }
       } catch {
-        if (mounted) setError(true);
+        // fall through
+      }
+
+      if (mounted) {
+        setError(true);
+        setLoading(false);
       }
     };
     fetchWeather();
@@ -52,10 +119,10 @@ export default function MarsWeatherPanel() {
     );
   }
 
-  if (!sol) {
+  if (loading || !sol) {
     return (
       <div style={{ padding: '8px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Courier New", monospace', fontSize: '9px', color: '#4a5070' }}>
-        Syncing with InSight...
+        Fetching Mars weather...
       </div>
     );
   }
@@ -71,15 +138,15 @@ export default function MarsWeatherPanel() {
 
   return (
     <div style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '2px', fontFamily: '"Courier New", monospace' }}>
-      <div style={{ fontSize: '8px', color: '#c1440e', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-        MARS // InSight Lander
+      <div style={{ fontSize: '8px', color: sol.archived ? '#4a5070' : '#c1440e', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '2px' }}>
+        MARS // {sol.source}
       </div>
-      {rows.map(r => (
-        <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #161a26', padding: '3px 0' }}>
-          <span style={{ fontSize: '8px', color: '#4a5070', textTransform: 'uppercase' }}>{r.label}</span>
-          <span style={{ fontSize: '9px', color: '#c8ccd8' }}>{r.value}</span>
+      {sol.archived && (
+        <div style={{ fontSize: '7px', color: '#c0473a', marginBottom: '4px', letterSpacing: '0.06em' }}>
+          ⚠ ARCHIVED DATA — mission ended Dec 2022
         </div>
-      ))}
+      )}
+      {rows.map(r => <Row key={r.label} label={r.label} value={r.value} />)}
     </div>
   );
 }
